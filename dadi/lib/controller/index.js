@@ -8,6 +8,7 @@ const seek = require('./seek')
 const sha1 = require('sha1')
 const urlParser = require('url')
 const zlib = require('zlib')
+const multer = require('multer')
 
 const config = require(path.join(__dirname, '/../../../config'))
 const DomainController = require(path.join(__dirname, '/domain'))
@@ -23,6 +24,18 @@ logger.init(config.get('logging'), config.get('logging.aws'), config.get('env'))
 
 const workQueue = new WorkQueue()
 
+const imagesDiskStorage = multer.diskStorage({
+  destination: function(req, file, cb) {
+    cb(null, path.join(__dirname, '/../../../storage/images'))
+  },
+  filename: function(req, file, cb) {
+    cb(
+      null,
+      file.fieldname + '-' + Date.now() + path.extname(file.originalname)
+    )
+  }
+})
+
 const Controller = function(router) {
   router.use(logger.requestLogger)
 
@@ -31,6 +44,40 @@ const Controller = function(router) {
   router.get('/hello', function(req, res, next) {
     res.end('Welcome to DADI CDN')
   })
+
+  router.post(
+    '/upload_image',
+    multer({storage: imagesDiskStorage}).single('image'),
+    function(req, res, next) {
+      const file = req.file.path
+      const filename = req.file.filename
+      const protocol = config.get('server.protocol')
+      const port = config.get('server.port')
+      const hostname = req.headers.host.split(':')[0]
+
+      if (!file) {
+        return help.sendBackJSON(
+          400,
+          {
+            success: false,
+            message: 'No file is selected.'
+          },
+          res
+        )
+      }
+
+      return help.sendBackJSON(
+        200,
+        {
+          success: true,
+          message: 'Image has been uploaded successfully.',
+          filename: filename,
+          url: protocol + '://' + hostname + ':' + port + '/' + filename
+        },
+        res
+      )
+    }
+  )
 
   router.get('/robots.txt', (req, res) => {
     const robotsFile = config.get('robots')
