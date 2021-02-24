@@ -9,6 +9,7 @@ const sha1 = require('sha1')
 const urlParser = require('url')
 const zlib = require('zlib')
 const multer = require('multer')
+const html_to_pdf = require('html-pdf-node')
 
 const config = require(path.join(__dirname, '/../../../config'))
 const DomainController = require(path.join(__dirname, '/domain'))
@@ -29,10 +30,18 @@ const imagesDiskStorage = multer.diskStorage({
     cb(null, path.join(__dirname, '/../../../storage/images'))
   },
   filename: function(req, file, cb) {
-    cb(
-      null,
-      file.fieldname + '-' + Date.now() + path.extname(file.originalname)
-    )
+    const filename = file.originalname.replace(/\s+/g, '-').toLowerCase()
+    cb(null, Date.now() + '-' + filename)
+  }
+})
+
+const assetsDiskStorage = multer.diskStorage({
+  destination: function(req, file, cb) {
+    cb(null, path.join(__dirname, '/../../../storage/assets'))
+  },
+  filename: function(req, file, cb) {
+    const filename = file.originalname.replace(/\s+/g, '-').toLowerCase()
+    cb(null, Date.now() + '-' + filename)
   }
 })
 
@@ -41,36 +50,123 @@ const Controller = function(router) {
 
   router.use(seek)
 
-  router.get('/hello', function(req, res, next) {
-    res.end('Welcome to DADI CDN')
+  router.get('/', function(req, res, next) {
+    res.end(
+      'Welcome to DAK Content Delivery Network. Please Read The Documentation to Get Started'
+    )
+  })
+
+  router.post('/page_to_pdf', function(req, res, next) {
+    let url = req.body.url
+    let format = req.body.format
+    let originalfilename = req.body.filename.replace(/\s+/g, '-').toLowerCase()
+    let filename = Date.now() + '-' + originalfilename
+    let options = {
+      format: format,
+      path: path.join(__dirname, '/../../../storage/assets') + '/' + filename
+    }
+    const protocol = config.get('server.protocol')
+    const port = config.get('server.port')
+    const hostname = req.headers.host.split(':')[0]
+
+    let file = {url: url}
+
+    html_to_pdf.generatePdf(file, options).then(pdfBuffer => {
+      return help.sendBackJSON(
+        200,
+        {
+          status: true,
+          message: 'Page has been exported to PDF successfully.',
+          filename: filename,
+          url: protocol + '://' + hostname + ':' + port + '/' + filename
+        },
+        res
+      )
+    })
   })
 
   router.post(
     '/upload_image',
-    multer({storage: imagesDiskStorage}).single('image'),
+    multer({
+      storage: imagesDiskStorage,
+      fileFilter: function(req, file, callback) {
+        var ext = path.extname(file.originalname)
+        if (
+          ext !== '.png' &&
+          ext !== '.jpg' &&
+          ext !== '.gif' &&
+          ext !== '.jpeg'
+        ) {
+          return callback(null, false)
+        }
+        callback(null, true)
+      }
+    }).single('image'),
     function(req, res, next) {
-      const file = req.file.path
-      const filename = req.file.filename
-      const protocol = config.get('server.protocol')
-      const port = config.get('server.port')
-      const hostname = req.headers.host.split(':')[0]
-
-      if (!file) {
+      if (!req.file) {
         return help.sendBackJSON(
           400,
           {
-            success: false,
-            message: 'No file is selected.'
+            status: false,
+            message: 'Only images are allowed.'
           },
           res
         )
       }
 
+      const filename = req.file.filename
+      const protocol = config.get('server.protocol')
+      const port = config.get('server.port')
+      const hostname = req.headers.host.split(':')[0]
+
       return help.sendBackJSON(
         200,
         {
-          success: true,
+          status: true,
           message: 'Image has been uploaded successfully.',
+          filename: filename,
+          url: protocol + '://' + hostname + ':' + port + '/' + filename
+        },
+        res
+      )
+    }
+  )
+
+  router.post(
+    '/upload_file',
+    multer({
+      storage: assetsDiskStorage,
+      fileFilter: function(req, file, callback) {
+        var ext = path.extname(file.originalname)
+        if (ext == '.png' || ext == '.jpg' || ext == '.gif' || ext == '.jpeg') {
+          return callback(null, false)
+        }
+        callback(null, true)
+      }
+    }).single('asset'),
+    function(req, res, next) {
+      if (!req.file) {
+        return help.sendBackJSON(
+          400,
+          {
+            status: false,
+            message:
+              'File not allowed. If you want to upload image please use /upload_image endpoint.'
+          },
+          res
+        )
+      }
+
+      const filename = req.file.filename
+      const protocol = config.get('server.protocol')
+      const port = config.get('server.port')
+      const hostname = req.headers.host.split(':')[0]
+
+      return help.sendBackJSON(
+        200,
+        {
+          status: true,
+          message: 'File has been uploaded successfully.',
           filename: filename,
           url: protocol + '://' + hostname + ':' + port + '/' + filename
         },
