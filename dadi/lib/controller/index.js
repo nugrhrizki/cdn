@@ -59,11 +59,13 @@ const Controller = function(router) {
   router.post('/page_to_pdf', function(req, res, next) {
     let url = req.body.url
     let format = req.body.format
+    let landscape = req.body.landscape
     let originalfilename = req.body.filename.replace(/\s+/g, '-').toLowerCase()
     let filename = Date.now() + '-' + originalfilename
     let options = {
       format: format,
-      path: path.join(__dirname, '/../../../storage/assets') + '/' + filename
+      path: path.join(__dirname, '/../../../storage/assets') + '/' + filename,
+      landscape: landscape
     }
     const protocol = config.get('server.protocol')
     const port = config.get('server.port')
