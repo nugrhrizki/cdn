@@ -10,6 +10,7 @@ const urlParser = require('url')
 const zlib = require('zlib')
 const multer = require('multer')
 const html_to_pdf = require('html-pdf-node')
+const fsx = require('fs-extra')
 
 const config = require(path.join(__dirname, '/../../../config'))
 const DomainController = require(path.join(__dirname, '/domain'))
@@ -117,9 +118,37 @@ const Controller = function(router) {
       }
 
       const filename = req.file.filename
+      const custom_path = req.body.path ? req.body.path : null
       const protocol = config.get('server.protocol')
       const port = config.get('server.port')
       const hostname = req.headers.host.split(':')[0]
+      var filepath = req.file.filename
+
+      if (custom_path != null) {
+        fsx.move(
+          path.join(__dirname, '/../../../storage/images') + '/' + filename,
+          path.join(__dirname, '/../../../storage/images') +
+            '/' +
+            custom_path +
+            '/' +
+            filename,
+          function(err) {
+            if (err) {
+              return help.sendBackJSON(
+                500,
+                {
+                  status: false,
+                  message: 'Unable to upload image.',
+                  debug: err
+                },
+                res
+              )
+            }
+          }
+        )
+
+        filepath = custom_path + '/' + filename
+      }
 
       return help.sendBackJSON(
         200,
@@ -127,7 +156,7 @@ const Controller = function(router) {
           status: true,
           message: 'Image has been uploaded successfully.',
           filename: filename,
-          url: protocol + '://' + hostname + ':' + port + '/' + filename
+          url: protocol + '://' + hostname + ':' + port + '/' + filepath
         },
         res
       )
@@ -160,9 +189,37 @@ const Controller = function(router) {
       }
 
       const filename = req.file.filename
+      const custom_path = req.body.path ? req.body.path : null
       const protocol = config.get('server.protocol')
       const port = config.get('server.port')
       const hostname = req.headers.host.split(':')[0]
+      var filepath = req.file.filename
+
+      if (custom_path != null) {
+        fsx.move(
+          path.join(__dirname, '/../../../storage/assets') + '/' + filename,
+          path.join(__dirname, '/../../../storage/assets') +
+            '/' +
+            custom_path +
+            '/' +
+            filename,
+          function(err) {
+            if (err) {
+              return help.sendBackJSON(
+                500,
+                {
+                  status: false,
+                  message: 'Unable to upload file.',
+                  debug: err
+                },
+                res
+              )
+            }
+          }
+        )
+
+        filepath = custom_path + '/' + filename
+      }
 
       return help.sendBackJSON(
         200,
@@ -170,7 +227,7 @@ const Controller = function(router) {
           status: true,
           message: 'File has been uploaded successfully.',
           filename: filename,
-          url: protocol + '://' + hostname + ':' + port + '/' + filename
+          url: protocol + '://' + hostname + ':' + port + '/' + filepath
         },
         res
       )
