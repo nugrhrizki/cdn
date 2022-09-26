@@ -234,6 +234,156 @@ const Controller = function(router) {
     }
   )
 
+  router.delete('/delete_image', (req, res) => {
+    const filename = req.body.filename || null
+    const custom_path = req.body.path || null
+    if (!filename) {
+      return help.sendBackJSON(
+        400,
+        {
+          status: false,
+          message: 'body filename is not defined',
+          debug: `body filename is ${filename}`
+        },
+        res
+      )
+    }
+    let filepath =
+      path.join(__dirname, '/../../../storage/images') + '/' + filename
+
+    if (custom_path != null) {
+      filepath =
+        path.join(__dirname, '/../../../storage/images') +
+        '/' +
+        custom_path +
+        '/' +
+        filename
+    }
+
+    fsx.pathExists(filepath, (err, exists) => {
+      if (err != null) {
+        return help.sendBackJSON(
+          500,
+          {
+            status: false,
+            message: `Unable to delete file ${filename}`,
+            debug: err
+          },
+          res
+        )
+      }
+      if (!exists) {
+        return help.sendBackJSON(
+          404,
+          {
+            status: false,
+            message: `file ${filename} not found`
+          },
+          res
+        )
+      }
+    })
+
+    fsx
+      .remove(filepath)
+      .then(() => {
+        return help.sendBackJSON(
+          200,
+          {
+            status: true,
+            message: 'File has been deleted successfully.'
+          },
+          res
+        )
+      })
+      .catch(err => {
+        return help.sendBackJSON(
+          500,
+          {
+            status: false,
+            message: `Unable to delete file ${filename}`,
+            debug: err
+          },
+          res
+        )
+      })
+  })
+
+  router.delete('/delete_asset', (req, res) => {
+    const filename = req.body.filename || null
+    const custom_path = req.body.path || null
+    if (!filename) {
+      return help.sendBackJSON(
+        400,
+        {
+          status: false,
+          message: 'body filename is not defined',
+          debug: `body filename is ${filename}`
+        },
+        res
+      )
+    }
+    let filepath =
+      path.join(__dirname, '/../../../storage/assets') + '/' + filename
+
+    if (custom_path != null) {
+      filepath =
+        path.join(__dirname, '/../../../storage/assets') +
+        '/' +
+        custom_path +
+        '/' +
+        filename
+    }
+
+    fsx.pathExists(filepath, (err, exists) => {
+      if (err != null) {
+        return help.sendBackJSON(
+          500,
+          {
+            status: false,
+            message: `Unable to delete file ${filename}`,
+            debug: err
+          },
+          res
+        )
+      }
+      if (!exists) {
+        return help.sendBackJSON(
+          404,
+          {
+            status: false,
+            message: `file ${filename} not found`
+          },
+          res
+        )
+      }
+    })
+
+    fsx
+      .remove(filepath)
+      .then(() => {
+        return help.sendBackJSON(
+          200,
+          {
+            status: true,
+            message: 'File has been deleted successfully.'
+          },
+          res
+        )
+      })
+      .catch(err => {
+        return help.sendBackJSON(
+          500,
+          {
+            status: false,
+            message: `Unable to delete file ${filename}`,
+            debug: err
+          },
+          res
+        )
+      })
+  })
+
   router.get('/robots.txt', (req, res) => {
     const robotsFile = config.get('robots')
 
