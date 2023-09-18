@@ -284,29 +284,19 @@ const Controller = function(router) {
       }
     })
 
-    fsx
-      .remove(filepath)
-      .then(() => {
-        return help.sendBackJSON(
-          200,
-          {
-            status: true,
-            message: 'File has been deleted successfully.'
-          },
-          res
-        )
-      })
-      .catch(err => {
-        return help.sendBackJSON(
-          500,
-          {
-            status: false,
-            message: `Unable to delete file ${filename}`,
-            debug: err
-          },
-          res
-        )
-      })
+    fsx.remove(filepath, function (err) {
+      if (err) {
+        return help.sendBackJSON(500, {
+          status: false,
+          message: `Unable to delete file ${filename}`,
+          debug: err
+        }, res)
+      }
+      return help.sendBackJSON(200, {
+        status: true,
+        message: 'File has been deleted successfully.'
+      }, res)
+    })
   })
 
   router.delete('/delete_asset', (req, res) => {
@@ -359,29 +349,19 @@ const Controller = function(router) {
       }
     })
 
-    fsx
-      .remove(filepath)
-      .then(() => {
-        return help.sendBackJSON(
-          200,
-          {
-            status: true,
-            message: 'File has been deleted successfully.'
-          },
-          res
-        )
-      })
-      .catch(err => {
-        return help.sendBackJSON(
-          500,
-          {
-            status: false,
-            message: `Unable to delete file ${filename}`,
-            debug: err
-          },
-          res
-        )
-      })
+    fsx.remove(filepath, function (err) {
+      if (err) {
+        return help.sendBackJSON(500, {
+          status: false,
+          message: `Unable to delete file ${filename}`,
+          debug: err
+        }, res)
+      }
+      return help.sendBackJSON(200, {
+        status: true,
+        message: 'File has been deleted successfully.'
+      }, res)
+    })
   })
 
   router.get('/robots.txt', (req, res) => {
