@@ -27,21 +27,23 @@ logger.init(config.get('logging'), config.get('logging.aws'), config.get('env'))
 const workQueue = new WorkQueue()
 
 const imagesDiskStorage = multer.diskStorage({
-  destination: function(req, file, cb) {
+  destination(req, file, cb) {
     cb(null, path.join(__dirname, '/../../../storage/images'))
   },
-  filename: function(req, file, cb) {
+  filename(req, file, cb) {
     const filename = file.originalname.replace(/\s+/g, '-').toLowerCase()
+
     cb(null, Date.now() + '-' + filename)
   }
 })
 
 const assetsDiskStorage = multer.diskStorage({
-  destination: function(req, file, cb) {
+  destination(req, file, cb) {
     cb(null, path.join(__dirname, '/../../../storage/assets'))
   },
-  filename: function(req, file, cb) {
+  filename(req, file, cb) {
     const filename = file.originalname.replace(/\s+/g, '-').toLowerCase()
+
     cb(null, Date.now() + '-' + filename)
   }
 })
@@ -51,36 +53,39 @@ const Controller = function(router) {
 
   router.use(seek)
 
-  router.get('/', function(req, res, next) {
+  router.get('/', function(req, res) {
     res.end(
       'Welcome to DAK Content Delivery Network. Please Read The Documentation to Get Started'
     )
   })
 
-  router.post('/page_to_pdf', function(req, res, next) {
-    let url = req.body.url
-    let format = req.body.format
-    let landscape = req.body.landscape
-    let originalfilename = req.body.filename.replace(/\s+/g, '-').toLowerCase()
-    let filename = Date.now() + '-' + originalfilename
-    let options = {
+  router.post('/page_to_pdf', function(req, res) {
+    const url = req.body.url
+    const format = req.body.format
+    const landscape = req.body.landscape
+    const originalfilename = req.body.filename
+      .replace(/\s+/g, '-')
+      .toLowerCase()
+    const filename = Date.now() + '-' + originalfilename
+    const options = {
+      // eslint-disable-next-line object-shorthand
       format: format,
       path: path.join(__dirname, '/../../../storage/assets') + '/' + filename,
-      landscape: landscape
+      landscape
     }
     const protocol = config.get('server.protocol')
     const port = config.get('server.port')
     const hostname = req.headers.host.split(':')[0]
 
-    let file = {url: url}
+    const file = {url}
 
-    html_to_pdf.generatePdf(file, options).then(pdfBuffer => {
+    html_to_pdf.generatePdf(file, options).then(() => {
       return help.sendBackJSON(
         200,
         {
           status: true,
           message: 'Page has been exported to PDF successfully.',
-          filename: filename,
+          filename,
           url: protocol + '://' + hostname + ':' + port + '/' + filename
         },
         res
@@ -92,8 +97,9 @@ const Controller = function(router) {
     '/upload_image',
     multer({
       storage: imagesDiskStorage,
-      fileFilter: function(req, file, callback) {
-        var ext = path.extname(file.originalname)
+      fileFilter(req, file, callback) {
+        const ext = path.extname(file.originalname)
+
         if (
           ext !== '.png' &&
           ext !== '.jpg' &&
@@ -102,10 +108,11 @@ const Controller = function(router) {
         ) {
           return callback(null, false)
         }
+
         callback(null, true)
       }
     }).single('image'),
-    function(req, res, next) {
+    async function(req, res) {
       if (!req.file) {
         return help.sendBackJSON(
           400,
@@ -122,32 +129,30 @@ const Controller = function(router) {
       const protocol = config.get('server.protocol')
       const port = config.get('server.port')
       const hostname = req.headers.host.split(':')[0]
-      var filepath = req.file.filename
+      let filepath = req.file.filename
 
-      if (custom_path != null) {
-        fsx.move(
-          path.join(__dirname, '/../../../storage/images') + '/' + filename,
-          path.join(__dirname, '/../../../storage/images') +
-            '/' +
-            custom_path +
-            '/' +
-            filename,
-          function(err) {
-            if (err) {
-              return help.sendBackJSON(
-                500,
-                {
-                  status: false,
-                  message: 'Unable to upload image.',
-                  debug: err
-                },
-                res
-              )
-            }
-          }
-        )
-
-        filepath = custom_path + '/' + filename
+      if (custom_path !== null) {
+        try {
+          await fsx.move(
+            path.join(__dirname, '/../../../storage/images') + '/' + filename,
+            path.join(__dirname, '/../../../storage/images') +
+              '/' +
+              custom_path +
+              '/' +
+              filename
+          )
+          filepath = custom_path + '/' + filename
+        } catch (err) {
+          return help.sendBackJSON(
+            500,
+            {
+              status: false,
+              message: 'Unable to upload image.',
+              debug: err
+            },
+            res
+          )
+        }
       }
 
       return help.sendBackJSON(
@@ -155,7 +160,7 @@ const Controller = function(router) {
         {
           status: true,
           message: 'Image has been uploaded successfully.',
-          filename: filename,
+          filename,
           url: protocol + '://' + hostname + ':' + port + '/' + filepath
         },
         res
@@ -167,15 +172,22 @@ const Controller = function(router) {
     '/upload_file',
     multer({
       storage: assetsDiskStorage,
-      fileFilter: function(req, file, callback) {
-        var ext = path.extname(file.originalname)
-        if (ext == '.png' || ext == '.jpg' || ext == '.gif' || ext == '.jpeg') {
+      fileFilter(req, file, callback) {
+        const ext = path.extname(file.originalname)
+
+        if (
+          ext === '.png' ||
+          ext === '.jpg' ||
+          ext === '.gif' ||
+          ext === '.jpeg'
+        ) {
           return callback(null, false)
         }
+
         callback(null, true)
       }
     }).single('asset'),
-    function(req, res, next) {
+    async function(req, res) {
       if (!req.file) {
         return help.sendBackJSON(
           400,
@@ -193,32 +205,31 @@ const Controller = function(router) {
       const protocol = config.get('server.protocol')
       const port = config.get('server.port')
       const hostname = req.headers.host.split(':')[0]
-      var filepath = req.file.filename
+      let filepath = req.file.filename
 
-      if (custom_path != null) {
-        fsx.move(
-          path.join(__dirname, '/../../../storage/assets') + '/' + filename,
-          path.join(__dirname, '/../../../storage/assets') +
-            '/' +
-            custom_path +
-            '/' +
-            filename,
-          function(err) {
-            if (err) {
-              return help.sendBackJSON(
-                500,
-                {
-                  status: false,
-                  message: 'Unable to upload file.',
-                  debug: err
-                },
-                res
-              )
-            }
-          }
-        )
+      if (custom_path !== null) {
+        try {
+          await fsx.move(
+            path.join(__dirname, '/../../../storage/assets') + '/' + filename,
+            path.join(__dirname, '/../../../storage/assets') +
+              '/' +
+              custom_path +
+              '/' +
+              filename
+          )
 
-        filepath = custom_path + '/' + filename
+          filepath = custom_path + '/' + filename
+        } catch (err) {
+          return help.sendBackJSON(
+            500,
+            {
+              status: false,
+              message: 'Unable to upload file.',
+              debug: err
+            },
+            res
+          )
+        }
       }
 
       return help.sendBackJSON(
@@ -226,7 +237,7 @@ const Controller = function(router) {
         {
           status: true,
           message: 'File has been uploaded successfully.',
-          filename: filename,
+          filename,
           url: protocol + '://' + hostname + ':' + port + '/' + filepath
         },
         res
@@ -234,9 +245,10 @@ const Controller = function(router) {
     }
   )
 
-  router.delete('/delete_image', (req, res) => {
+  router.delete('/delete_image', async (req, res) => {
     const filename = req.body.filename || null
     const custom_path = req.body.path || null
+
     if (!filename) {
       return help.sendBackJSON(
         400,
@@ -248,10 +260,11 @@ const Controller = function(router) {
         res
       )
     }
+
     let filepath =
       path.join(__dirname, '/../../../storage/images') + '/' + filename
 
-    if (custom_path != null) {
+    if (custom_path !== null) {
       filepath =
         path.join(__dirname, '/../../../storage/images') +
         '/' +
@@ -260,18 +273,9 @@ const Controller = function(router) {
         filename
     }
 
-    fsx.pathExists(filepath, (err, exists) => {
-      if (err != null) {
-        return help.sendBackJSON(
-          500,
-          {
-            status: false,
-            message: `Unable to delete file ${filename}`,
-            debug: err
-          },
-          res
-        )
-      }
+    try {
+      const exists = await fsx.pathExists(filepath)
+
       if (!exists) {
         return help.sendBackJSON(
           404,
@@ -282,26 +286,34 @@ const Controller = function(router) {
           res
         )
       }
-    })
 
-    fsx.remove(filepath, function (err) {
-      if (err) {
-        return help.sendBackJSON(500, {
+      await fsx.remove(filepath)
+
+      return help.sendBackJSON(
+        200,
+        {
+          status: true,
+          message: 'File has been deleted successfully.'
+        },
+        res
+      )
+    } catch (error) {
+      return help.sendBackJSON(
+        500,
+        {
           status: false,
           message: `Unable to delete file ${filename}`,
-          debug: err
-        }, res)
-      }
-      return help.sendBackJSON(200, {
-        status: true,
-        message: 'File has been deleted successfully.'
-      }, res)
-    })
+          debug: error
+        },
+        res
+      )
+    }
   })
 
-  router.delete('/delete_asset', (req, res) => {
+  router.delete('/delete_asset', async (req, res) => {
     const filename = req.body.filename || null
     const custom_path = req.body.path || null
+
     if (!filename) {
       return help.sendBackJSON(
         400,
@@ -313,10 +325,11 @@ const Controller = function(router) {
         res
       )
     }
+
     let filepath =
       path.join(__dirname, '/../../../storage/assets') + '/' + filename
 
-    if (custom_path != null) {
+    if (custom_path !== null) {
       filepath =
         path.join(__dirname, '/../../../storage/assets') +
         '/' +
@@ -325,18 +338,9 @@ const Controller = function(router) {
         filename
     }
 
-    fsx.pathExists(filepath, (err, exists) => {
-      if (err != null) {
-        return help.sendBackJSON(
-          500,
-          {
-            status: false,
-            message: `Unable to delete file ${filename}`,
-            debug: err
-          },
-          res
-        )
-      }
+    try {
+      const exists = await fsx.pathExists(filepath)
+
       if (!exists) {
         return help.sendBackJSON(
           404,
@@ -347,21 +351,28 @@ const Controller = function(router) {
           res
         )
       }
-    })
 
-    fsx.remove(filepath, function (err) {
-      if (err) {
-        return help.sendBackJSON(500, {
+      await fsx.remove(filepath)
+
+      return help.sendBackJSON(
+        200,
+        {
+          status: true,
+          message: 'File has been deleted successfully.'
+        },
+        res
+      )
+    } catch (error) {
+      return help.sendBackJSON(
+        500,
+        {
           status: false,
           message: `Unable to delete file ${filename}`,
-          debug: err
-        }, res)
-      }
-      return help.sendBackJSON(200, {
-        status: true,
-        message: 'File has been deleted successfully.'
-      }, res)
-    })
+          debug: error
+        },
+        res
+      )
+    }
   })
 
   router.get('/robots.txt', (req, res) => {
@@ -522,7 +533,7 @@ const Controller = function(router) {
         distribution.invalidate(
           callerReference,
           ['/' + req.body.pattern],
-          function(err, invalidation) {
+          function(err) {
             if (err) console.log(err)
 
             return help.sendBackJSON(
